@@ -1,6 +1,6 @@
 # streamlit logic will go here
 import streamlit as st
-from quiz_validation import validate_quiz_response
+from modules.quiz_validation import validate_quiz_response
 
 
 # # sample response of LLM 
