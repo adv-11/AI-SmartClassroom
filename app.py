@@ -34,3 +34,7 @@ from modules.quiz_validation import validate_quiz_response
 # }
 
 # print (validate_quiz_response(sample_response))
+
+#------------------------------------------------------------ # 
+
+# testing out doc upload and -> prompt engineering -> model -> response -> validation
