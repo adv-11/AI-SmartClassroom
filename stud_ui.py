@@ -18,10 +18,7 @@ def fetch_quiz(collection, quiz_id):
     try:
         st.write(f"Fetching quiz with ID: {quiz_id}")
         quiz = collection.find_one({"quiz_id": quiz_id})
-        if quiz:
-            st.write("Quiz fetched successfully.")
-        else:
-            st.error("Quiz not found.")
+        st.write(f"Quiz fetched: {quiz}")
         return quiz
     except Exception as e:
         st.error(f"Error fetching quiz: {e}")
@@ -61,18 +58,17 @@ def main():
     st.title("Smart Classroom Quiz")
     st.subheader("Test your knowledge and track your progress!")
 
-    # MongoDB connection details
+    # MongoDB connection details (retrieved from secrets)
     mongo_uri = st.secrets["MONGO_URI"]
-    db_name = "quiz-db"
-    quiz_collection_name = "quizcollect"
-    score_collection_name = "scores"
+    db_name = st.secrets["DB_NAME"]
+    quiz_collection_name = st.secrets["QUIZ_COLLECTION"]
+    score_collection_name = st.secrets["SCORE_COLLECTION"]
 
     # Connect to MongoDB collections
     quiz_collection = connect_to_mongo(mongo_uri, db_name, quiz_collection_name)
     score_collection = connect_to_mongo(mongo_uri, db_name, score_collection_name)
 
     if quiz_collection is None or score_collection is None:
-        st.error("Database connection failed. Please check your configuration.")
         return
 
     # Initialize session state variables
@@ -115,28 +111,25 @@ def main():
                 question_id = question['question_id']
                 options = question['options']
 
-                st.radio(
+                selected_option = st.radio(
                     f"{question['question_text']}",
                     [opt['option_text'] for opt in options],
                     key=f"q{question_id}"
                 )
 
-            submit_quiz = st.form_submit_button("Submit Quiz")
-
-        # Handle quiz submission
-        if submit_quiz and not st.session_state.submitted:
-            st.write("Submit Quiz button clicked")
-            for question in quiz['questions']:
-                question_id = question['question_id']
-                selected_option = st.session_state.get(f"q{question_id}")
                 if selected_option:
-                    correct_option = next(opt for opt in question['options'] if opt['is_correct'])
+                    correct_option = next(opt for opt in options if opt['is_correct'])
                     is_correct = selected_option == correct_option['option_text']
                     st.session_state.responses[question_id] = {
                         "selected_option": selected_option,
                         "is_correct": is_correct
                     }
 
+            submit_quiz = st.form_submit_button("Submit Quiz")
+
+        # Handle quiz submission
+        if submit_quiz and not st.session_state.submitted:
+            st.write("Submit Quiz button clicked")
             score = sum(1 for response in st.session_state.responses.values() if response['is_correct'])
             total_questions = len(st.session_state.responses)
 
