@@ -29,4 +29,4 @@ if st.button("Load Quiz"):
 # Retrieve all quizzes
 quizzes = collection.find()
 for quiz in quizzes:
-    print(quiz)
+    print(quiz)
