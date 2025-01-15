@@ -7,14 +7,14 @@ client = pymongo.MongoClient("mongodb+srv://gayatrikurulkar:gaya031202@quiz-clus
 db = client["quiz-db"]  # Replace with your actual database name
 
 # Fetch data from the 'score' collection
-score_collection = db["score"]
+score_collection = db["scores"]
 scores_data = list(score_collection.find())
 
 # Convert data to DataFrame for easier manipulation
 df = pd.DataFrame(scores_data)
 
 # Show the data in Streamlit
-st.write(df)
+#st.write(df)
 
 import matplotlib.pyplot as plt
 
@@ -29,3 +29,5 @@ st.pyplot(fig)
 average_score = df["score"].mean()
 st.write(f"Average Score: {average_score}")
 
+# Print column names to debug
+print("Column Names in DataFrame:", df.columns)
