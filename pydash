@@ -1,0 +1,23 @@
+import dash
+from dash import html, dcc
+import plotly.express as px
+import pandas as pd
+
+# Sample DataFrame
+df = pd.DataFrame(scores_data)
+
+# App Initialization
+app = dash.Dash(__name__)
+
+# Average Score Per Quiz
+fig = px.bar(df.groupby('quiz_id')['score'].mean(), title="Average Scores Per Quiz")
+
+# Layout
+app.layout = html.Div([
+    html.H1("Quiz Dashboard"),
+    dcc.Graph(figure=fig)
+])
+
+# Run App
+if __name__ == '__main__':
+    app.run_server(debug=True)

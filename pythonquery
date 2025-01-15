@@ -1,0 +1,8 @@
+from pymongo import MongoClient
+
+client = MongoClient("mongodb+srv://gayatrikurulkar:gaya031202@quiz-cluster.rde4k.mongodb.net/?retryWrites=true&w=majority&appName=quiz-cluster")
+db = client["quiz-db"]
+scores_collection = db["scores"]
+
+# Fetch all score data 
+scores_data = scores_collection.find()
