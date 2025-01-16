@@ -1,0 +1,54 @@
+cookie:
+  expiry_days: 30
+  key: some_signature_key
+  name: some_cookie_name
+credentials:
+  usernames:
+    newuser:
+      email: user3@example.com
+      first_name: New
+      last_name: User
+      logged_in: false
+      password: $2b$12$YuldPto1umvr.MbKvZ0XhOGGaYA4zLuOsCikuiUyDYsDNh34qba6K
+      password_hint: new
+      roles: null
+    newuserr:
+      email: user5@example.com
+      first_name: Neww
+      last_name: User
+      logged_in: false
+      password: $2b$12$ZIaJfxbuex8.qP4C.b9QqOxmTuP5oJHgZYVsGwO1pJqe6lGPy9SOK
+      password_hint: new
+      roles: null
+    newuserrr:
+      email: user9@example.com
+      first_name: Neww
+      last_name: Userrrr
+      logged_in: false
+      password: $2b$12$zcP0tfKqOCi8xjtR2VMV7uUL/MrrUpF1ldO8kq70Lb98AVHG07Bb6
+      password_hint: new
+      roles: null
+    testuser:
+      email: testuser@example.com
+      failed_login_attempts: 0
+      first_name: Test
+      last_name: User
+      logged_in: false
+      password: $2b$12$13fizXe6vBGCUNC9Nb5mrOMryiQX6SJt5pSqHqfWoUqyhNxZWJkJG
+      roles:
+      - admin
+      - viewer
+pre-authorized:
+  emails:
+  - user2@example.com
+register_user:
+  usernames:
+    newuser:
+      email: newuser@example.com
+      first_name: New
+      last_name: User
+      password: Strongpassword123!
+      registered_at: 2025-01-15
+      roles:
+      - user
+      - viewer
