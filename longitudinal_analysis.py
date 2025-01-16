@@ -2,46 +2,98 @@ import streamlit as st
 import pymongo
 import pandas as pd
 import matplotlib.pyplot as plt
+import plotly.express as px
+from pymongo import MongoClient
 
-# MongoDB connection
-client = pymongo.MongoClient("mongodb+srv://gayatrikurulkar:gaya031202@quiz-cluster.rde4k.mongodb.net/?retryWrites=true&w=majority&appName=quiz-cluster")
+# MongoDB Connection
+client = MongoClient("mongodb+srv://gayatrikurulkar:gaya031202@quiz-cluster.rde4k.mongodb.net/?retryWrites=true&w=majority&appName=quiz-cluster")
 db = client["quiz-db"]
 collection = db["scores"]
 
-# Fetch data from MongoDB
+# Fetch Data from MongoDB
 data = list(collection.find())
-df = pd.DataFrame(data)
+df = pd.json_normalize(data)
 
-# Ensure '_id' is not part of the analysis
-df = df.drop(columns=["_id"], errors="ignore")
+# Dashboard Configuration
+st.set_page_config(page_title="Student Dashboard", layout="wide", initial_sidebar_state="expanded")
+st.title("🎓 Student Performance Dashboard")
 
-# Allow student selection
-st.title("Student Progress Dashboard")
+# Sidebar Navigation
+st.sidebar.title("Student Navigation")
 student_ids = df["student_id"].unique()
-selected_student = st.selectbox("Select a Student ID", student_ids)
+selected_student = st.sidebar.selectbox("Select a Student ID:", student_ids)
 
-# Filter data for the selected student
+# Filter Data for Selected Student
 student_data = df[df["student_id"] == selected_student]
 
-# Ensure quizzes are sorted in chronological order
-student_data = student_data.sort_values(by=["quiz_id"])
-
-# Check if the student has multiple quiz attempts
-if len(student_data) < 2:
-    st.warning("This student has not attempted multiple quizzes.")
+if student_data.empty:
+    st.warning(f"No data available for Student ID {selected_student}.")
 else:
-    # Create a line chart for progress
-    fig, ax = plt.subplots()
-    ax.plot(student_data["quiz_id"], student_data["score"], marker="o", label="Score")
-    ax.set_title(f"Progress for Student {selected_student}")
-    ax.set_xlabel("Quiz ID")
-    ax.set_ylabel("Score")
-    ax.grid(True)
-    ax.legend()
+    # Student Info and Key Metrics
+    st.header(f"Student Overview: ID {selected_student}")
+    total_quizzes = student_data["quiz_id"].nunique()
+    avg_score = student_data["score"].mean()
+    max_score = student_data["score"].max()
 
-    # Display the line chart
-    st.pyplot(fig)
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Total Quizzes Taken", total_quizzes)
+    col2.metric("Average Score", f"{avg_score:.2f}")
+    col3.metric("Highest Score", max_score)
 
-# Optional: Display raw data
-st.write("Raw Data for Selected Student")
-st.write(student_data)
+    st.markdown("---")
+
+    # Quiz-wise Performance Bar Chart
+    st.subheader("Bar Chart: Performance by Quiz")
+    quiz_scores = student_data[["quiz_id", "score"]]
+    bar_chart = px.bar(
+        quiz_scores,
+        x="quiz_id",
+        y="score",
+        title="Performance in Each Quiz",
+        labels={"quiz_id": "Quiz ID", "score": "Score"},
+        color="score",
+        color_continuous_scale=["#add8e6", "#4682b4"],  # Gradient from light blue to steel blue
+    )
+    bar_chart.update_layout(
+        paper_bgcolor="white", 
+        plot_bgcolor="white",
+        coloraxis_colorbar=dict(title="Score", tickvals=list(range(0, 11))),
+    )
+    st.plotly_chart(bar_chart, use_container_width=True)
+
+    st.markdown("---")
+
+    # Line Chart: Score Progression
+    st.subheader("Line Chart: Score Progression")
+    score_progression = student_data.sort_values("quiz_id")
+    line_chart = px.line(
+        score_progression,
+        x="quiz_id",
+        y="score",
+        title="Score Progression Over Time",
+        markers=True,
+        labels={"quiz_id": "Quiz ID", "score": "Score"},
+    )
+    line_chart.update_layout(
+        paper_bgcolor="white",
+        plot_bgcolor="white",
+        font=dict(color="black")
+    )
+    st.plotly_chart(line_chart, use_container_width=True)
+
+    st.markdown("---")
+
+    # Detailed Table of Responses
+    st.subheader("Detailed Responses")
+    if "responses" in df.columns:
+        responses = pd.json_normalize(data, "responses", ["student_id", "quiz_id"])
+        student_responses = responses[responses["student_id"] == selected_student]
+
+        if not student_responses.empty:
+            st.write("Responses for Each Question:")
+            st.dataframe(student_responses[["quiz_id", "question_id", "selected_option", "is_correct"]])
+        else:
+            st.warning("No detailed responses available for this student.")
+
+    # Footer
+    st.markdown("Built with ❤️ using Streamlit")
