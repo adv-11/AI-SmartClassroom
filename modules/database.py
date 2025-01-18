@@ -1,6 +1,7 @@
 import streamlit as st
 from pymongo import MongoClient
 
+
 # MongoDB connection
 def connect_to_mongo(uri, db_name, collection_name):
     try:
@@ -18,7 +19,7 @@ def fetch_quiz(collection, quiz_id):
     try:
         st.write(f"Fetching quiz with ID: {quiz_id}")
         quiz = collection.find_one({"quiz_id": quiz_id})
-        st.write(f"Quiz fetched: {quiz}")
+        st.write(f"Quiz fetched!")
         return quiz
     except Exception as e:
         st.error(f"Error fetching quiz: {e}")
