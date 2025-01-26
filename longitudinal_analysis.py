@@ -4,9 +4,11 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import plotly.express as px
 from pymongo import MongoClient
+import os
+from dotenv import load_env
 
 # MongoDB Connection
-client = MongoClient("mongodb+srv://gayatrikurulkar:gaya031202@quiz-cluster.rde4k.mongodb.net/?retryWrites=true&w=majority&appName=quiz-cluster")
+client = MongoClient(os.environ.get('MONGO_DB_URI'))
 db = client["quiz-db"]
 collection = db["scores"]
 
@@ -97,3 +99,5 @@ else:
 
     # Footer
     st.markdown("Built with ❤️ using Streamlit")
+#st.cloumns
+#pygo
