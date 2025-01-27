@@ -10,6 +10,9 @@ from langchain.chains import RetrievalQA
 from pydantic import BaseModel, ValidationError
 from typing import List
 import json
+from langchain.output_parsers import PydanticOutputParser
+from langchain_core.prompts import PromptTemplate
+from langchain_core.pydantic_v1 import BaseModel, Field, validator
 
 # Load environment variables
 load_dotenv()
@@ -84,6 +87,8 @@ def generate_quiz_page():
                 vector_store = FAISS.from_documents(splits, embeddings)
                 retriever = vector_store.as_retriever()
 
+                parser = PydanticOutputParser(pydantic_object=QuizModel)
+
                 # Prompt
                 prompt = f"""
 You are a teacher and need to generate a quiz for your class based on the provided document.
@@ -116,25 +121,26 @@ Format the output as a JSON object with the following structure:
 
 Ensure the questions are relevant to the content of the uploaded document.
                 """
-
                 # Retrieval-based QA
                 rag_chain = RetrievalQA.from_chain_type(
+                    
                     llm=llm,
                     chain_type="stuff",
                     retriever=retriever,
+                    
                 )
 
+                # rag_chain = llm | prompt | retriever
+
                 st.info("Generating quiz, please wait...")
-                result = rag_chain.invoke({"query": prompt})
+                result = rag_chain.invoke()
 
                 if result:
-                    st.success("Quiz generated successfully!")
-                    st.json(result)
-                    quiz_dict = json.loads(result['result'])
-                    st.write(quiz_dict)
-
+                    
+                    st.write("Quiz generated successfully!")
+                    st.write(result)
                     # Validate Response
-                    if validate_quiz_response(quiz_dict):
+                    if validate_quiz_response(result):
 
                         st.error("Validation failed. Check the quiz structure.")
                 else:
