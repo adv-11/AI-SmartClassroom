@@ -7,15 +7,15 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.vectorstores import FAISS
 from langchain.document_loaders import PyPDFLoader
 from langchain.chains import RetrievalQA
-from pydantic import BaseModel, ValidationError, Field
+from pydantic import BaseModel, ValidationError
 from typing import List
 import json
 from langchain.output_parsers import PydanticOutputParser
 from langchain_core.prompts import PromptTemplate
-
+from langchain_core.pydantic_v1 import BaseModel, Field, validator
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.prompts import PromptTemplate
-
+from langchain_core.pydantic_v1 import BaseModel, Field
 from langchain_openai import ChatOpenAI
 
 # Load environment variables
@@ -24,30 +24,26 @@ load_dotenv()
 # Initialize LLM
 llm = ChatOpenAI(model="gpt-4", api_key=os.getenv("OPENAI_API_KEY"))
 
-
 # Embeddings
 from langchain.embeddings.openai import OpenAIEmbeddings
 embeddings = OpenAIEmbeddings()
 
 # Validation Models
 class OptionModel(BaseModel):
-    option_text: str = Field(description="Option text")
-    is_correct: bool = Field(description="Correct option flag")   
+    option_text: str
+    is_correct: bool
 
 class QuestionModel(BaseModel):
-    question_id: int = Field(description="Unique ID for the question")
-    question_text: str  = Field(description="Question text")
-    options: List[OptionModel] = Field(description="List of options")
+    question_id: int
+    question_text: str
+    options: List[OptionModel]
 
 class QuizModel(BaseModel):
-    quiz_id: int = Field(description="Unique ID for the quiz")
-    title: str = Field(description="Title of the quiz")
-    description: str = Field(description="Description of the quiz")
-    source_document: str = Field(description="Source document for the quiz")
-    questions: List[QuestionModel]  = Field(description="List of questions")
-
-
-parser = PydanticOutputParser(pydantic_object=QuizModel)
+    quiz_id: int
+    title: str
+    description: str
+    source_document: str
+    questions: List[QuestionModel]
 
 def validate_quiz_response(response: dict) -> int:
     try:
@@ -96,72 +92,64 @@ def generate_quiz_page():
                 retriever = vector_store.as_retriever()
 
                 parser = PydanticOutputParser(pydantic_object=QuizModel)
-                prompt = PromptTemplate(
-                    template="You are a teacher and need to generate a quiz for your class based on the provided document. Generate 5 questions. Format Instructions:\n{format_instructions}\n",
-
-                    partial_variables={"format_instructions": parser.get_format_instructions()},
-                    )
-
-
 
                 # Prompt
-#                 prompt = f"""
-# You are a teacher and need to generate a quiz for your class based on the provided document.
+                prompt = f"""
+You are a teacher and need to generate a quiz for your class based on the provided document.
 
-# The quiz should contain {num_questions} questions.
+The quiz should contain {num_questions} questions.
 
-# Each question should have 4 options, out of which only one is correct.
+Each question should have 4 options, out of which only one is correct.
 
-# Format the output as a JSON object with the following structure:
+Format the output as a JSON object with the following structure:
 
-# {{
-#     "quiz_id": ,
-#     "title": "",
-#     "desc": "{test_description}",
-#     "src_doc": "Uploaded Document",
-#     "questions": [
-#         {{
-#             "question_id": 1,
-#             "question": "",
-#             "options": [
-#                 {{"option_text": "", "is_correct": True}},
-#                 {{"option_text": "", "is_correct": False}},
-#                 {{"option_text": "", "is_correct": False}},
-#                 {{"option_text": "", "is_correct": False}}
-#             ]
-#         }},
-#         ...
-#     ]
-# }}
+{{
+    "quiz_id": ,
+    "title": "",
+    "desc": "{test_description}",
+    "src_doc": "Uploaded Document",
+    "questions": [
+        {{
+            "question_id": 1,
+            "question": "",
+            "options": [
+                {{"option_text": "", "is_correct": true}},
+                {{"option_text": "", "is_correct": false}},
+                {{"option_text": "", "is_correct": false}},
+                {{"option_text": "", "is_correct": false}}
+            ]
+        }},
+        ...
+    ]
+}}
 
-
-
-#Ensure the questions are relevant to the content of the uploaded document.
-                # """
-
+Ensure the questions are relevant to the content of the uploaded document.
+                """
                 # Retrieval-based QA
-                rag_chain = prompt | llm | retriever | parser
-                
+                rag_chain = RetrievalQA.from_chain_type(
+                    
+                    llm=llm,
+                    chain_type="stuff",
+                    retriever=retriever,
+                    
+                )
 
                 # rag_chain = llm | prompt | retriever
 
-                teacher_quiz_config = f"Number of questions: {num_questions}, Test Description: {test_description}, Difficulty Level: {difficulty}"
-
-
-
                 st.info("Generating quiz, please wait...")
-                result = rag_chain.invoke({"query": ''})  
+                result = rag_chain.invoke(prompt)
 
                 if result:
                     
                     st.write("Quiz generated successfully!")
-                    st.write(result)
-                    # Validate Response
-                    if validate_quiz_response(result['result']):
+                    st.write(result['result'])
 
-                        st.error("Validation failed. Check the quiz structure.")
-                else:
-                    st.error("Failed to generate quiz. LLM returned an empty response.")
+                    
+                    # Validate Response
+                    
+                    result_to_send = result['result'].strip()
+
+                    st.json(result_to_send)
 
             except Exception as e:
                 st.error(f"An error occurred: {str(e)}")
