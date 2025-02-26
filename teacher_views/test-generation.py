@@ -12,10 +12,10 @@ from typing import List
 import json
 from langchain.output_parsers import PydanticOutputParser
 from langchain_core.prompts import PromptTemplate
-from langchain_core.pydantic_v1 import BaseModel, Field, validator
-from langchain_core.output_parsers import JsonOutputParser
-from langchain_core.prompts import PromptTemplate
-from langchain_core.pydantic_v1 import BaseModel, Field
+from langchain_core.pydantic_v1 import BaseModel
+
+
+from langchain_core.pydantic_v1 import BaseModel
 from langchain_openai import ChatOpenAI
 
 # Load environment variables
@@ -70,6 +70,8 @@ def generate_quiz_page():
     quiz_file = st.file_uploader("Upload a document (PDF only):", type=["pdf"])
 
     if st.button("Generate Quiz"):
+
+        # making a temp file
         if quiz_file:
             with tempfile.NamedTemporaryFile(delete=False) as temp_file:
                 temp_file.write(quiz_file.read())
@@ -84,14 +86,15 @@ def generate_quiz_page():
                     st.error("Failed to extract content from the uploaded document. Please try another file.")
                     return
 
+                #chunking 
                 text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
                 splits = text_splitter.split_documents(docs)
 
-                # Vector Store
+                # Vector Store - FAISS
                 vector_store = FAISS.from_documents(splits, embeddings)
                 retriever = vector_store.as_retriever()
 
-                parser = PydanticOutputParser(pydantic_object=QuizModel)
+                # parser = PydanticOutputParser(pydantic_object=QuizModel)
 
                 # Prompt
                 prompt = f"""
@@ -123,7 +126,7 @@ Format the output as a JSON object with the following structure:
     ]
 }}
 
-Ensure the questions are relevant to the content of the uploaded document.
+Ensure the questions are relevant to the content of the uploaded document. and shuffle the order of the is_correct key.
                 """
                 # Retrieval-based QA
                 rag_chain = RetrievalQA.from_chain_type(
@@ -142,14 +145,14 @@ Ensure the questions are relevant to the content of the uploaded document.
                 if result:
                     
                     st.write("Quiz generated successfully!")
-                    st.write(result['result'])
+                    st.write(result['result'])               # bad print data
 
                     
                     # Validate Response
                     
-                    result_to_send = result['result'].strip()
+                    result_to_send = result['result'].strip()          # send to mongo
 
-                    st.json(result_to_send)
+                    st.json(result_to_send)                  # json 
 
             except Exception as e:
                 st.error(f"An error occurred: {str(e)}")
