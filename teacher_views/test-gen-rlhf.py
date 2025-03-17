@@ -155,9 +155,11 @@ Ensure the questions are relevant to the content of the uploaded document.
         st.subheader("💡 Provide Feedback for Quiz Improvement")
         feedback = st.text_area("Enter your feedback on how to improve the quiz:")
         if st.button("🔄 Regenerate Quiz"):
-            new_prompt = f''' The previous quiz was discarded due to: {feedback}. Improve the quiz accordingly. 
+            new_prompt = f''' The previous quiz was discarded due to some reasons. Here is the feedback provided by the teacher : {feedback}. Improve the quiz accordingly. 
 
             Keep the response JSON format the same.
+
+            Number of questions: {num_questions}
             
 {{
     "quiz_id": "{quiz_id}",
@@ -188,8 +190,9 @@ Ensure the questions are relevant to the content of the uploaded document.
             st.info("Regenerating quiz, please wait...")
             new_result = generate_quiz(new_prompt, st.session_state['retriever'])
             if new_result:
-                st.write(new_result)
-                st.session_state['generated_quiz'] = json.loads(new_result['result'].strip())
+                # st.write(new_result) uncomment and check JSON if validation Error!
+                result_to_send = json.loads(new_result['result'].strip())
+                st.session_state['generated_quiz'] = result_to_send
                 del st.session_state['discarded_quiz']
                 st.success("Quiz regenerated successfully!")
                 st.subheader("📜 New Quiz Preview")
