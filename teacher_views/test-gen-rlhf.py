@@ -188,6 +188,7 @@ Ensure the questions are relevant to the content of the uploaded document.
             st.info("Regenerating quiz, please wait...")
             new_result = generate_quiz(new_prompt, st.session_state['retriever'])
             if new_result:
+                st.write(new_result)
                 st.session_state['generated_quiz'] = json.loads(new_result['result'].strip())
                 del st.session_state['discarded_quiz']
                 st.success("Quiz regenerated successfully!")
