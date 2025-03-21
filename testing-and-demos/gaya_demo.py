@@ -12,7 +12,6 @@ from dotenv import load_dotenv
 from mistralai import Mistral
 from mistralai.client import MistralClient
 import time
-import google.generativeai as genai  # Gemini API
 from google.generativeai import GenerativeModel, configure  # Specific functions
 
 # Load environment variables
