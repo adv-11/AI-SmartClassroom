@@ -86,48 +86,52 @@ if selected == "🏠 Home" and st.session_state.logged_in:
     st.write(f"Welcome, {teacher_name}!")
 
     # Fetch courses created by the logged-in teacher
-    created_courses = [
-        {"course_name": course["course_name"], "course_id": course["course_id"]}
-        for course in courses_collection.find({"creator_name": teacher_name})
-    ]
+    created_courses = list(courses_collection.find({"creator_name": teacher_name}))
 
-    # Display created courses with buttons
-    st.subheader("Your Created Courses")
-    for course in created_courses:
-        if st.button(course['course_name']):
-            st.session_state.selected_course_id = course['course_id']
-            st.session_state.selected_course_name = course['course_name']
-            st.success(f"Selected course: {course['course_name']}")
+    # Display created courses with selection buttons
+    st.subheader("📚 Your Created Courses")
+    if created_courses:
+        for i, course in enumerate(created_courses):  # Unique keys for buttons
+            if st.button(course['course_name'], key=f"course_{i}"):
+                st.session_state.selected_course_id = course['course_id']
+                st.session_state.selected_course_name = course['course_name']
+                st.success(f"Selected course: {course['course_name']}")
 
-    # Input fields to create a new course
-    st.subheader("Create a New Course")
-    new_course_name = st.text_input("Enter the course name")
-    new_course_id = st.text_input("Enter the course ID (unique)")
-    creator_name = teacher_name
+    else:
+        st.info("You haven't created any courses yet.")
 
-    if st.button("Create Course"):
+    # Section: Create a New Course
+    st.subheader("➕ Create a New Course")
+    new_course_name = st.text_input("Enter Course Name")
+    new_course_id = st.text_input("Enter Unique Course ID")
+
+    if st.button("Create Course", key="create_course_button"):
         if new_course_name and new_course_id:
             if courses_collection.find_one({"course_id": new_course_id}):
-                st.warning(f"A course with ID '{new_course_id}' already exists.")
+                st.warning(f"A course with ID '{new_course_id}' already exists. Please choose another ID.")
             else:
+                # Sanitize database name (replace special characters with underscores)
                 sanitized_db_name = re.sub(r"[^a-zA-Z0-9_]", "_", new_course_name.lower())
+
+                # Insert course details into MongoDB
                 course_data = {
                     "course_id": new_course_id,
                     "course_name": new_course_name,
-                    "creator_name": creator_name,
+                    "creator_name": teacher_name,
                     "db_name": sanitized_db_name
                 }
                 courses_collection.insert_one(course_data)
 
-                # Create a new database for the course
+                # Create a separate database for this course
                 course_db = client[sanitized_db_name]
                 course_db.create_collection("quiz")
                 course_db.create_collection("test_scores")
+                course_db.create_collection("enroll_stud")
 
-                st.success(f"Successfully created the course: {new_course_name}!")
+                st.success(f"🎉 Course '{new_course_name}' created successfully!")
                 st.rerun()
         else:
-            st.error("Please fill in all the fields to create a new course.")
+            st.error("⚠️ Please enter both the Course Name and Unique Course ID.")
 
     # Logout Button
     if st.button("Logout"):
@@ -141,6 +145,21 @@ if selected == "🏠 Home" and not st.session_state.logged_in:
 
 if selected == "📝 Quiz Generation" and st.session_state.logged_in:
     teacher_name = st.session_state.teacher_name
+    
+    # Fetch courses created by the logged-in teacher
+    created_courses = list(courses_collection.find({"creator_name": teacher_name}))
+    
+    # Create a dropdown to select course
+    if created_courses:
+        course_options = {course['course_name']: course for course in created_courses}
+        selected_course_name = st.selectbox("Select Course", list(course_options.keys()))
+        selected_course = course_options[selected_course_name]
+        db_name = selected_course['db_name']  # Get the sanitized DB name
+        course_id = selected_course['course_id']  # Get the course ID
+    else:
+        st.warning("You don't have any courses. Please create a course first.")
+        st.stop()
+    
     # Initialize LLM
     llm = ChatOpenAI(model="gpt-4", api_key=os.getenv("OPENAI_API_KEY"))
 
@@ -166,11 +185,10 @@ if selected == "📝 Quiz Generation" and st.session_state.logged_in:
 
     def generate_quiz_page():
         st.title("Generate Quiz")
-        st.write("Upload a document and generate quizzes based on its content.")
+        st.write(f"Creating quiz for course: {selected_course_name}")
 
         # User Inputs
         quiz_id = st.text_input("Enter Test ID:")
-        subject_name = st.text_input("Enter Subject Name:")
         num_questions = st.slider("Number of Questions", min_value=1, max_value=10, value=5)
         test_description = st.text_area("Describe the test:", "Enter a short description of the test.")
         difficulty = st.slider("Difficulty Level", min_value=1, max_value=3, value=2)
@@ -213,7 +231,8 @@ if selected == "📝 Quiz Generation" and st.session_state.logged_in:
         "quiz_id": "{quiz_id}",
         "title": "",
         "desc": "{test_description}",
-        "subject": "{subject_name}",
+        "subject": "{selected_course_name}",
+        "course_id": "{course_id}",
         
         "questions": [
             {{
@@ -257,13 +276,10 @@ if selected == "📝 Quiz Generation" and st.session_state.logged_in:
                 if st.button("✅ Post Quiz"):
                     result_to_send = st.session_state['generated_quiz']
                     
-                    # Check if the subject name exists as a database
-                    if subject_name in client.list_database_names():
-                        subject_db = client[subject_name]  # Access subject database
-                        subject_db["quiz"].insert_one(result_to_send)  # Store in "quiz" collection
-                        st.success(f"Quiz successfully stored in '{subject_name}' database under 'quiz' collection!")
-                    else:
-                        st.warning("Subject name not found in the database. Quiz not stored.")
+                    # Use the db_name from the selected course
+                    subject_db = client[db_name]  # Access subject database using correct db name
+                    subject_db["quiz"].insert_one(result_to_send)  # Store in "quiz" collection
+                    st.success(f"Quiz successfully stored in '{selected_course_name}' course!")
 
                     # Clear session state after posting
                     del st.session_state['generated_quiz']
@@ -287,7 +303,8 @@ if selected == "📝 Quiz Generation" and st.session_state.logged_in:
         "quiz_id": "{quiz_id}",
         "title": "",
         "desc": "{test_description}",
-        "subject": "{subject_name}",
+        "subject": "{selected_course_name}",
+        "course_id": "{course_id}",
         
         "questions": [
             {{
@@ -303,11 +320,6 @@ if selected == "📝 Quiz Generation" and st.session_state.logged_in:
             ...
         ]
     }}
-
-
-                
-                
-                
                 '''
                 st.info("Regenerating quiz, please wait...")
                 new_result = generate_quiz(new_prompt, st.session_state['retriever'])
@@ -322,21 +334,36 @@ if selected == "📝 Quiz Generation" and st.session_state.logged_in:
 
     generate_quiz_page()
 
-if selected == "📊 Visualization" and  st.session_state.logged_in:
+if selected == "📊 Visualization" and st.session_state.logged_in:
     st.title("📊 Quiz Performance Visualization")
     
-    quiz_id = st.text_input("Enter Quiz ID:")
-    subject_name = st.text_input("Enter Subject Name:")
+    teacher_name = st.session_state.teacher_name
     
-    if st.button("Show Visualization"):
-        if quiz_id and subject_name:
-            # Check if the subject database exists
-            if subject_name in client.list_database_names():
-                subject_db = client[subject_name]  # Access subject database
-                test_scores_collection = subject_db["test_scores"]
-                
+    # Fetch courses created by the logged-in teacher
+    created_courses = list(courses_collection.find({"creator_name": teacher_name}))
+    
+    # Create a dropdown to select course
+    if created_courses:
+        course_options = {course['course_name']: course for course in created_courses}
+        selected_course_name = st.selectbox("Select Course", list(course_options.keys()))
+        selected_course = course_options[selected_course_name]
+        db_name = selected_course['db_name']  # Get the sanitized DB name
+        
+        # Connect to the selected course database
+        course_db = client[db_name]
+        
+        # Get all quizzes for this course
+        quizzes = list(course_db["quiz"].find({}, {"quiz_id": 1, "title": 1}))
+        
+        if quizzes:
+            quiz_options = {quiz.get('title', quiz['quiz_id']): quiz['quiz_id'] for quiz in quizzes}
+            selected_quiz_title = st.selectbox("Select Quiz", list(quiz_options.keys()))
+            selected_quiz_id = quiz_options[selected_quiz_title]
+            
+            if st.button("Show Visualization"):
                 # Fetch scores of students who attempted the quiz
-                scores_data = list(test_scores_collection.find({"quiz_id": quiz_id}))
+                test_scores_collection = course_db["test_scores"]
+                scores_data = list(test_scores_collection.find({"quiz_id": selected_quiz_id}))
                 
                 if scores_data:
                     # Convert to DataFrame
@@ -349,7 +376,7 @@ if selected == "📊 Visualization" and  st.session_state.logged_in:
                     ax.bar(df["student_id"], df["score"], color='skyblue')
                     ax.set_xlabel("Students")
                     ax.set_ylabel("Scores")
-                    ax.set_title(f"Scores for Quiz ID: {quiz_id}")
+                    ax.set_title(f"Scores for Quiz: {selected_quiz_title}")
                     plt.xticks(rotation=45)
                     st.pyplot(fig)
                     
@@ -357,8 +384,8 @@ if selected == "📊 Visualization" and  st.session_state.logged_in:
                     st.subheader("Raw Scores Data")
                     st.dataframe(df)
                 else:
-                    st.warning("No data found for the entered Quiz ID.")
-            else:
-                st.error("Subject name not found in the database.")
+                    st.warning("No scores data found for the selected quiz.")
         else:
-            st.error("Please enter both Quiz ID and Subject Name.")
+            st.warning("No quizzes found for this course.")
+    else:
+        st.warning("You don't have any courses. Please create a course first.")
