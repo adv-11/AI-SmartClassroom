@@ -378,4 +378,3 @@ with st.expander("How to use FlashQuiz Generator"):
 
 # Footer
 st.markdown("---")
-st.markdown("FlashQuiz Generator v1.0 | Powered by GPT-4o Mini")
